@@ -1,7 +1,8 @@
 from src.data import load_data, split_dataset
-from src.preprocessing import preprocess_data, feature_engineering
-from src.models import train_model
+from src.preprocessing import preprocess_data, feature_engineering, transformer_preprocessor
+from src.models import train_lstm, finetune_transformer
 from src.evaluation import evaluate_model, collect_misclassified_samples, plot_confusion_matrix, plot_learning_curves
+from transformers import AutoTokenizer
 import json
 
 class Pipeline:
@@ -16,6 +17,7 @@ class Pipeline:
         self.dev = None
         self.test = None
         self.LSTM = None
+        self.Transformer = None
         self.max_tokens = max_tokens
 
     def run(self) -> None:
@@ -31,13 +33,19 @@ class Pipeline:
         self.train, self.dev = split_dataset(self.train)
         print(f"Loaded data for pipeline {self.max_tokens}")
         
-        # Preprocess data
-        self.train = preprocess_data(self.train)
-        self.dev = preprocess_data(self.dev)
-        self.test = preprocess_data(self.test)
+        # Preprocess data for both LSTM and Transformer models, ensuring that the same preprocessing steps are applied to all datasets for consistency.
+        self.train_LSTM = preprocess_data(self.train)
+        self.dev_LSTM = preprocess_data(self.dev)
+        self.test_LSTM = preprocess_data(self.test)
+
+        # tokenizer = transformer_preprocessor(self.train['description'].tolist(), max_tokens=self.max_tokens)
+        tokenized_train = transformer_preprocessor(AutoTokenizer.from_pretrained("distilbert-base-uncased"), self.train)
+        tokenized_dev = transformer_preprocessor(AutoTokenizer.from_pretrained("distilbert-base-uncased"), self.dev)
+        tokenized_test = transformer_preprocessor(AutoTokenizer.from_pretrained("distilbert-base-uncased"), self.test)
 
         # Maximum length of the output sequence after vectorization (padding/truncating)
         output_sequence_length = 128
+
         # Dimensionality of the embedding layer
         embed_dim = 64
 
@@ -46,27 +54,35 @@ class Pipeline:
 
         
         # Feature engineering using TF Text Vectorization
-        self.X_train, vocab = feature_engineering(self.train, column_name="description", max_tokens=self.max_tokens, output_sequence_length=output_sequence_length)
+        self.X_train_LSTM, vocab = feature_engineering(self.train_LSTM, column_name="description", max_tokens=self.max_tokens, output_sequence_length=output_sequence_length)
          # Convert from 1-indexed to 0-indexed
         self.y_train = self.train['label'].values - 1
 
-        self.X_dev, _ = feature_engineering(self.dev, column_name="description", max_tokens=self.max_tokens, output_sequence_length=output_sequence_length, vocab=vocab)
+        self.X_dev_LSTM, _ = feature_engineering(self.dev_LSTM, column_name="description", max_tokens=self.max_tokens, output_sequence_length=output_sequence_length, vocab=vocab)
         self.y_dev = self.dev['label'].values - 1
 
-        self.X_test, _ = feature_engineering(self.test, column_name="description", max_tokens=self.max_tokens, output_sequence_length=output_sequence_length, vocab=vocab)
+        self.X_test_LSTM, _ = feature_engineering(self.test_LSTM, column_name="description", max_tokens=self.max_tokens, output_sequence_length=output_sequence_length, vocab=vocab)
         self.y_test = self.test['label'].values - 1
 
+
+
         # Train LSTM model with larger batch size for faster training, using dev set for validation
-        self.LSTM, self.LSTM_history = train_model('lstm', self.X_train, self.y_train, X_val=self.X_dev, y_val=self.y_dev, vocab_size=self.max_tokens, embed_dim=embed_dim, epochs=epochs, batch_size=256)
+        self.LSTM, self.LSTM_history = train_lstm(self.X_train_LSTM, self.y_train, X_val=self.X_dev_LSTM, y_val=self.y_dev, vocab_size=self.max_tokens, embed_dim=embed_dim, epochs=epochs, batch_size=256)
+        
+        # Train Transformer model with the same hyperparameters for a fair comparison, using dev set for validation
+        self.Transformer = finetune_transformer(tokenized_train, tokenized_dev)
 
         # Evaluate models on the test set
-        self.LSTM_predictions, self.LSTM_metrics = evaluate_model(self.LSTM, self.X_test, self.y_test)
+        self.LSTM_predictions, self.LSTM_metrics = evaluate_model(self.LSTM, self.X_test_LSTM, self.y_test)
+        self.Transformer_predictions, self.Transformer_metrics = evaluate_model(self.Transformer, self.X_test_LSTM, self.y_test)
 
         # Collect misclassified for both models for creation of error categories
-        self.LSTM_misclassified = collect_misclassified_samples(self.LSTM, self.X_test, self.y_test, n_samples=10)
+        self.LSTM_misclassified = collect_misclassified_samples(self.LSTM, self.X_test_LSTM, self.y_test, n_samples=10)
+        self.Transformer_misclassified = collect_misclassified_samples(self.Transformer, self.X_test_LSTM, self.y_test, n_samples=10)
 
         self.predictions = {
-            "LSTM": self.LSTM_predictions
+            "LSTM": self.LSTM_predictions,
+            "Transformer": self.Transformer_predictions
         }
         
         for model_name, y_pred in self.predictions.items():
@@ -79,6 +95,11 @@ class Pipeline:
         # Plot learning curves for both models
         plot_learning_curves(
             {"LSTM": self.LSTM_history},
+            title=f"Learning Curves – max_tokens={self.max_tokens}", 
+            max_tokens=self.max_tokens
+        )
+        plot_learning_curves(
+            {"Transformer": self.Transformer_history},
             title=f"Learning Curves – max_tokens={self.max_tokens}", 
             max_tokens=self.max_tokens
         )
@@ -98,6 +119,12 @@ if __name__ == "__main__":
     
     with open('results/lstm_history.json', 'w') as f:
         json.dump(pipeline.LSTM_history, f, indent=4)
+
+    with open('results/transformer_metrics.json', 'w') as f:
+        json.dump(pipeline.Transformer_metrics, f, indent=4)
+    
+    with open('results/transformer_history.json', 'w') as f:
+        json.dump(pipeline.Transformer_history, f, indent=4)
 
     # Save misclassified samples for the best performing model and both models for error analysis.
     pipeline.LSTM_misclassified.to_csv('results/LSTM_misclassified.csv', index=False)

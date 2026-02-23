@@ -5,10 +5,15 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
 from tqdm import tqdm
+from transformers import (
+    AutoTokenizer,
+    DistilBertForSequenceClassification, 
+    Trainer
+)
+from src.preprocessing import transformer_preprocessor
 
 # Type alias for pandas Series or numpy array
 PandasSeriesAny: TypeAlias = Any
-
 class TextLSTM(nn.Module):
     """An LSTM for text clasification"""
     def __init__(self, vocab_size: int, embed_dim: int, num_classes: int)-> None:
@@ -36,8 +41,7 @@ class TextLSTM(nn.Module):
         x = self.fc(hidden[-1])
         return x
 
-def train_model(
-    model_name: str,
+def train_lstm(
     X_train: np.ndarray,
     y_train: PandasSeriesAny | np.ndarray,
     X_val: np.ndarray | None = None,
@@ -51,14 +55,6 @@ def train_model(
 ):
     # Determine the device to use for training (GPU if available, otherwise CPU)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-    # Initialize the model based on the model name
-    if model_name == "cnn":
-        model = TextCNN(vocab_size, embed_dim, num_classes)
-    elif model_name == "lstm":
-        model = TextLSTM(vocab_size, embed_dim, num_classes)
-    else:
-        raise ValueError(f"Unsupported model type: {model_name}")
 
     # Move the model to the appropriate device -GPU or CPU
     model.to(device)
@@ -138,3 +134,19 @@ def train_model(
             print(f"Epoch {epoch+1}/{epochs} - Loss: {avg_train_loss:.4f}")
 
     return model, history
+
+
+def finetune_transformer(tokenized_train, tokenized_dev):    
+    tokenizer = AutoTokenizer.from_pretrained("distilbert-base-uncased")
+    model = DistilBertForSequenceClassification.from_pretrained("distilbert-base-uncased", problem_type="multi_label_classification")
+
+    trainer = Trainer(
+        model=model,
+        train_dataset=tokenized_train,
+        eval_dataset=tokenized_dev,
+        tokenizer=tokenizer
+    )
+
+    trainer.train()
+
+    return model

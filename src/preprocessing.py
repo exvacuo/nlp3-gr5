@@ -4,6 +4,7 @@ import re
 import pandas as pd
 import numpy as np
 from collections import Counter
+from transformers import AutoTokenizer
 
 PAD = "<pad>"
 UNK = "<unk>"
@@ -41,6 +42,13 @@ def preprocess_data(df: pd.DataFrame) -> pd.DataFrame:
     df["description"] = df["description"].apply(clean_text)
     df["tokens"] = df["description"].apply(tokenize_text)
     return df
+
+
+def transformer_preprocessor(tokenizer, data):
+    def preprocess(data):
+        return tokenizer(data["description"], padding="max_length")
+
+    return data.map(preprocess) # batched=True
 
 
 def build_vocab(token_lists: list[list[str]], max_tokens: int = 20000) -> dict[str, int]:
@@ -102,3 +110,6 @@ def feature_engineering(
     X = encode_and_pad(token_lists, vocab, output_sequence_length)
 
     return X, vocab
+
+
+
