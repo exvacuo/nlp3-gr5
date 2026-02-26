@@ -33,7 +33,7 @@ def load_data() -> Tuple[pd.DataFrame, pd.DataFrame]:
             df.rename(columns={"text": "description"}, inplace=True)
     return train, test
 
-def split_dataset(train: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
+def split_dataset(train: pd.DataFrame, train_size: float = 1.0) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
     Split the original train set into a new train set and a dev set.
 
@@ -41,6 +41,7 @@ def split_dataset(train: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
     :return: A tuple containing the new train and dev DataFrames.
     """
 
+    train = train.groupby("label", group_keys=False).apply(lambda x: x.sample(frac=train_size, random_state=1337))
     x_all = train["description"].tolist()
     y_all = train["label"].tolist()
 
@@ -55,5 +56,44 @@ def split_dataset(train: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
 
     new_train = pd.DataFrame({"description": x_train, "label": y_train})
     dev = pd.DataFrame({"description": x_dev, "label": y_dev})
+
+    return new_train, dev
+
+
+
+def load_both(train: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    x_all = pd.DataFrame[[train["description"].tolist(), train["title"].tolist()]]
+    y_all = train["label"].tolist()
+
+    x_train, x_dev, y_train, y_dev = train_test_split(
+        x_all,
+        y_all,
+        test_size=0.1,
+        random_state=1337,
+        stratify=y_all,
+        shuffle=True,
+    )
+
+    new_train = pd.DataFrame({"description": x_train, "label": y_train})
+    dev = pd.DataFrame({"description": x_dev, "label": y_dev})
+
+    return new_train, dev
+
+
+def load_headline_only(train:pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    x_all = train["title"].tolist()
+    y_all = train["label"].tolist()
+
+    x_train, x_dev, y_train, y_dev = train_test_split(
+        x_all,
+        y_all,
+        test_size=0.1,
+        random_state=1337,
+        stratify=y_all,
+        shuffle=True,
+    )
+
+    new_train = pd.DataFrame({"title": x_train, "label": y_train})
+    dev = pd.DataFrame({"title": x_dev, "label": y_dev})
 
     return new_train, dev

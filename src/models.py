@@ -139,8 +139,7 @@ def train_lstm(
     return model, history
 
 
-def finetune_transformer(tokenized_train, tokenized_dev):    
-    tokenizer = AutoTokenizer.from_pretrained("distilbert-base-uncased")
+def finetune_transformer(tokenized_train, tokenized_dev, tokenizer):
     model = DistilBertForSequenceClassification.from_pretrained(
         "distilbert-base-uncased",
         num_labels=4,
@@ -150,6 +149,8 @@ def finetune_transformer(tokenized_train, tokenized_dev):
     training_args = TrainingArguments(
         output_dir="results/transformer",
         num_train_epochs=3,
+        weight_decay=0.01, # h-param
+        learning_rate=2e-5, # mention these in report
         per_device_train_batch_size=16,
         per_device_eval_batch_size=32,
         eval_strategy="epoch",
