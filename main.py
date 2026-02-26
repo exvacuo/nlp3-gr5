@@ -8,7 +8,7 @@ import os
 
 class Pipeline:
     """ A class to encapsulate the entire machine learning pipeline for the AG News classification task, including data loading, preprocessing, model training, evaluation, and analysis of misclassified samples."""
-    def __init__(self, max_tokens:int=10000, headline_only = None, train_size: float = 1.0) -> None:
+    def __init__(self, max_tokens:int=10000, headline_only: int = 0, train_size: float = 1.0) -> None:
         """
         Initialize the Pipeline class with placeholders for datasets, models, and evaluation results.
 
@@ -33,9 +33,9 @@ class Pipeline:
         self.train, self.test = load_data()
 
         # Load data
-        if self.headline_only is True:
+        if self.headline_only == 1:
             self.train, self.test = load_headline_only(self.train)
-        elif self.headline_only is False:
+        elif self.headline_only == 2:
             self.train, self.test = load_both(self.train)
         else:
             # Split dataset
@@ -208,6 +208,6 @@ if __name__ == "__main__":
     pipeline.Transformer_misclassified.to_csv('results/Transformer_misclassified.csv', index=False)
 
     # Run robustness evaluation to test model performance under various conditions and save results for analysis.
-    robustness_evaluation()S
+    robustness_evaluation()
 
     

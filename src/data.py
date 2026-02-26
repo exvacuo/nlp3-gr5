@@ -41,7 +41,7 @@ def split_dataset(train: pd.DataFrame, train_size: float = 1.0) -> Tuple[pd.Data
     :return: A tuple containing the new train and dev DataFrames.
     """
 
-    train = train.groupby("label", group_keys=False).sample(frac=train_size, crandom_state=1337).reset_index(drop=True)
+    train = train.groupby("label", group_keys=False).sample(frac=train_size, random_state=1337).reset_index(drop=True)
     print(train.head())
     x_all = train["description"].tolist()
     y_all = train["label"].tolist()
