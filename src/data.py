@@ -42,7 +42,6 @@ def split_dataset(train: pd.DataFrame, train_size: float = 1.0) -> Tuple[pd.Data
     """
 
     train = train.groupby("label", group_keys=False).sample(frac=train_size, random_state=1337).reset_index(drop=True)
-    print(train.head())
     x_all = train["description"].tolist()
     y_all = train["label"].tolist()
 
@@ -62,7 +61,8 @@ def split_dataset(train: pd.DataFrame, train_size: float = 1.0) -> Tuple[pd.Data
 
 
 def load_both(train: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
-    x_all = pd.DataFrame[[train["description"].tolist(), train["title"].tolist()]]
+    # x_all = [train["description"].tolist(), train["title"].tolist()]
+    x_all = (train["description"] + " " + train["title"].tolist())
     y_all = train["label"].tolist()
 
     x_train, x_dev, y_train, y_dev = train_test_split(
@@ -93,7 +93,7 @@ def load_headline_only(train:pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
         shuffle=True,
     )
 
-    new_train = pd.DataFrame({"title": x_train, "label": y_train})
-    dev = pd.DataFrame({"title": x_dev, "label": y_dev})
+    new_train = pd.DataFrame({"description": x_train, "label": y_train})
+    dev = pd.DataFrame({"description": x_dev, "label": y_dev})
 
     return new_train, dev

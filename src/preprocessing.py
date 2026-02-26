@@ -38,8 +38,20 @@ def preprocess_data(df: pd.DataFrame) -> pd.DataFrame:
     Preprocess the input DataFrame by cleaning the text in the "description" column and tokenizing it into a new "tokens" column.
 
     :param df: A pandas DataFrame containing a "description" column with text data to be preprocessed
-    :return: A new DataFrame with the original "description" column cleaned and a new "tokens" column containing lists of tokens
+    :return: A new DataFrame with the original "description" column cleaned and a new
     """
+
+
+    if "description" not in df.columns:
+        if "title" in df.columns:
+            df = df.copy()
+            df["description"] = df["title"]
+        else:
+            raise KeyError(
+                f"preprocess_data expected a 'description' column (or 'headline' fallback). "
+                f"Got columns: {list(df.columns)}"
+            )
+
     df["description"] = df["description"].apply(clean_text)
     df["tokens"] = df["description"].apply(tokenize_text)
     return df

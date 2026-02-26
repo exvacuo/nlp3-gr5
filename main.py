@@ -8,7 +8,7 @@ import os
 
 class Pipeline:
     """ A class to encapsulate the entire machine learning pipeline for the AG News classification task, including data loading, preprocessing, model training, evaluation, and analysis of misclassified samples."""
-    def __init__(self, max_tokens:int=10000, headline_only: int = 0, train_size: float = 1.0) -> None:
+    def __init__(self, max_tokens:int=10000, headline_only = None, train_size: float = 1.0) -> None:
         """
         Initialize the Pipeline class with placeholders for datasets, models, and evaluation results.
 
@@ -33,10 +33,10 @@ class Pipeline:
         self.train, self.test = load_data()
 
         # Load data
-        if self.headline_only == 1:
-            self.train, self.test = load_headline_only(self.train)
-        elif self.headline_only == 2:
-            self.train, self.test = load_both(self.train)
+        if self.headline_only == True:
+            self.train, self.dev = load_headline_only(self.train)
+        elif self.headline_only == False:
+            self.train, self.dev = load_both(self.train)
         else:
             # Split dataset
             self.train, self.dev = split_dataset(self.train, train_size=self.train_size)
@@ -133,7 +133,7 @@ def train_size_sensitivity():
             }, f, indent=4)
         
 
-def input_stress_test(head_only: bool=True) -> None:
+def input_stress_test(head_only: bool = True) -> None:
     """
     Evaluate model performance under input field stress tests by training and evaluating models using only the headline as input, and comparing it to the performance when both the headline and description are used.
     
@@ -172,40 +172,40 @@ def robustness_evaluation() -> None:
     """
 
     # Input field stress test: Evaluate model performance when only the headline is used as input, and compare it to the performance when both the headline and description are used. This will help determine how much the model relies on the description versus the headline for classification.
-    input_stress_test(head_only=True)
-    input_stress_test(head_only=False)
+    #input_stress_test(head_only=True)
+    #input_stress_test(head_only=False)
 
     # Train size sensitivity: Evaluate model performance when trained on different fractions of the training data (e.g., 25%, 50%, 75%, and 100%) to understand how the amount of training data affects the model's performance and its ability to generalize.
     for train_size in [0.25, 0.5, 0.75, 1.0]:
         label_noise_sensitivity(train_size=train_size)
 
 if __name__ == "__main__":
-    # Instantiate and run the machine learning pipeline for AG News classification with max_tokens 1000
-    pipeline = Pipeline()
-    pipeline.run()
+    # # Instantiate and run the machine learning pipeline for AG News classification with max_tokens 1000
+    # pipeline = Pipeline()
+    # pipeline.run()
 
-    # Print evaluation metrics for both models and save them to JSON files, along with the misclassified samples for further analysis.
-    print("LSTM Metrics:", pipeline.LSTM_metrics)
+    # # Print evaluation metrics for both models and save them to JSON files, along with the misclassified samples for further analysis.
+    # print("LSTM Metrics:", pipeline.LSTM_metrics)
 
-    # Save metrics and misclassified samples to files for further analysis and reporting.
+    # # Save metrics and misclassified samples to files for further analysis and reporting.
 
-    os.makedirs("results", exist_ok=True)
+    # os.makedirs("results", exist_ok=True)
 
-    with open('results/lstm_metrics.json', 'w') as f:
-        json.dump(pipeline.LSTM_metrics, f, indent=4)
+    # with open('results/lstm_metrics.json', 'w') as f:
+    #     json.dump(pipeline.LSTM_metrics, f, indent=4)
     
-    with open('results/lstm_history.json', 'w') as f:
-        json.dump(pipeline.LSTM_history, f, indent=4)
+    # with open('results/lstm_history.json', 'w') as f:
+    #     json.dump(pipeline.LSTM_history, f, indent=4)
 
-    with open('results/transformer_metrics.json', 'w') as f:
-        json.dump(pipeline.Transformer_metrics, f, indent=4)
+    # with open('results/transformer_metrics.json', 'w') as f:
+    #     json.dump(pipeline.Transformer_metrics, f, indent=4)
     
-    with open('results/transformer_history.json', 'w') as f:
-        json.dump(pipeline.Transformer_history, f, indent=4)
+    # with open('results/transformer_history.json', 'w') as f:
+    #     json.dump(pipeline.Transformer_history, f, indent=4)
 
-    # Save misclassified samples for both models
-    pipeline.LSTM_misclassified.to_csv('results/LSTM_misclassified.csv', index=False)
-    pipeline.Transformer_misclassified.to_csv('results/Transformer_misclassified.csv', index=False)
+    # # Save misclassified samples for both models
+    # pipeline.LSTM_misclassified.to_csv('results/LSTM_misclassified.csv', index=False)
+    # pipeline.Transformer_misclassified.to_csv('results/Transformer_misclassified.csv', index=False)
 
     # Run robustness evaluation to test model performance under various conditions and save results for analysis.
     robustness_evaluation()

@@ -163,8 +163,7 @@ def finetune_transformer(tokenized_train, tokenized_dev, tokenizer):
         model=model,
         args=training_args,
         train_dataset=tokenized_train,
-        eval_dataset=tokenized_dev,
-        tokenizer=tokenizer
+        eval_dataset=tokenized_dev
     )
 
     trainer.train()
