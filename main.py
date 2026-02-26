@@ -4,6 +4,7 @@ from src.models import train_lstm, finetune_transformer
 from src.evaluation import evaluate_model, collect_misclassified_samples, plot_confusion_matrix, plot_learning_curves
 from transformers import AutoTokenizer
 import json
+import os
 
 class Pipeline:
     """ A class to encapsulate the entire machine learning pipeline for the AG News classification task, including data loading, preprocessing, model training, evaluation, and analysis of misclassified samples."""
@@ -38,10 +39,10 @@ class Pipeline:
         self.dev_LSTM = preprocess_data(self.dev)
         self.test_LSTM = preprocess_data(self.test)
 
-        # tokenizer = transformer_preprocessor(self.train['description'].tolist(), max_tokens=self.max_tokens)
-        tokenized_train = transformer_preprocessor(AutoTokenizer.from_pretrained("distilbert-base-uncased"), self.train)
-        tokenized_dev = transformer_preprocessor(AutoTokenizer.from_pretrained("distilbert-base-uncased"), self.dev)
-        tokenized_test = transformer_preprocessor(AutoTokenizer.from_pretrained("distilbert-base-uncased"), self.test)
+        transformer_tokenizer = AutoTokenizer.from_pretrained("distilbert-base-uncased")
+        tokenized_train = transformer_preprocessor(transformer_tokenizer, self.train)
+        tokenized_dev = transformer_preprocessor(transformer_tokenizer, self.dev)
+        tokenized_test = transformer_preprocessor(transformer_tokenizer, self.test)
 
         # Maximum length of the output sequence after vectorization (padding/truncating)
         output_sequence_length = 128
@@ -70,15 +71,15 @@ class Pipeline:
         self.LSTM, self.LSTM_history = train_lstm(self.X_train_LSTM, self.y_train, X_val=self.X_dev_LSTM, y_val=self.y_dev, vocab_size=self.max_tokens, embed_dim=embed_dim, epochs=epochs, batch_size=256)
         
         # Train Transformer model with the same hyperparameters for a fair comparison, using dev set for validation
-        self.Transformer = finetune_transformer(tokenized_train, tokenized_dev)
+        self.Transformer, self.Transformer_history = finetune_transformer(tokenized_train, tokenized_dev)
 
         # Evaluate models on the test set
         self.LSTM_predictions, self.LSTM_metrics = evaluate_model(self.LSTM, self.X_test_LSTM, self.y_test)
-        self.Transformer_predictions, self.Transformer_metrics = evaluate_model(self.Transformer, self.X_test_LSTM, self.y_test)
+        self.Transformer_predictions, self.Transformer_metrics = evaluate_model(self.Transformer, tokenized_test, self.y_test)
 
         # Collect misclassified for both models for creation of error categories
         self.LSTM_misclassified = collect_misclassified_samples(self.LSTM, self.X_test_LSTM, self.y_test, n_samples=10)
-        self.Transformer_misclassified = collect_misclassified_samples(self.Transformer, self.X_test_LSTM, self.y_test, n_samples=10)
+        self.Transformer_misclassified = collect_misclassified_samples(self.Transformer, tokenized_test, self.y_test, n_samples=10)
 
         self.predictions = {
             "LSTM": self.LSTM_predictions,
@@ -113,6 +114,8 @@ if __name__ == "__main__":
     print("LSTM Metrics:", pipeline.LSTM_metrics)
 
     # Save metrics and misclassified samples to files for further analysis and reporting.
+
+    os.makedirs("results", exist_ok=True)
 
     with open('results/lstm_metrics.json', 'w') as f:
         json.dump(pipeline.LSTM_metrics, f, indent=4)

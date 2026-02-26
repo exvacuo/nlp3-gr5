@@ -8,7 +8,8 @@ from tqdm import tqdm
 from transformers import (
     AutoTokenizer,
     DistilBertForSequenceClassification, 
-    Trainer
+    Trainer,
+    TrainingArguments,
 )
 from src.preprocessing import transformer_preprocessor
 
@@ -55,6 +56,8 @@ def train_lstm(
 ):
     # Determine the device to use for training (GPU if available, otherwise CPU)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    model = TextLSTM(vocab_size=vocab_size, embed_dim=embed_dim, num_classes=num_classes)
 
     # Move the model to the appropriate device -GPU or CPU
     model.to(device)
@@ -138,10 +141,26 @@ def train_lstm(
 
 def finetune_transformer(tokenized_train, tokenized_dev):    
     tokenizer = AutoTokenizer.from_pretrained("distilbert-base-uncased")
-    model = DistilBertForSequenceClassification.from_pretrained("distilbert-base-uncased", problem_type="multi_label_classification")
+    model = DistilBertForSequenceClassification.from_pretrained(
+        "distilbert-base-uncased",
+        num_labels=4,
+        problem_type="single_label_classification",
+    )
+
+    training_args = TrainingArguments(
+        output_dir="results/transformer",
+        num_train_epochs=3,
+        per_device_train_batch_size=16,
+        per_device_eval_batch_size=32,
+        eval_strategy="epoch",
+        save_strategy="no",
+        logging_strategy="epoch",
+        report_to=[],
+    )
 
     trainer = Trainer(
         model=model,
+        args=training_args,
         train_dataset=tokenized_train,
         eval_dataset=tokenized_dev,
         tokenizer=tokenizer
@@ -149,4 +168,14 @@ def finetune_transformer(tokenized_train, tokenized_dev):
 
     trainer.train()
 
-    return model
+    train_loss: list[float] = []
+    val_loss: list[float] = []
+    for log in getattr(trainer.state, "log_history", []) or []:
+        if "loss" in log and "eval_loss" not in log:
+            train_loss.append(float(log["loss"]))
+        if "eval_loss" in log:
+            val_loss.append(float(log["eval_loss"]))
+
+    history = {"train_loss": train_loss, "val_loss": val_loss, "stopped_epoch": None}
+
+    return model, history

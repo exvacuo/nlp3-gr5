@@ -5,6 +5,7 @@ import pandas as pd
 import numpy as np
 from collections import Counter
 from transformers import AutoTokenizer
+from datasets import Dataset
 
 PAD = "<pad>"
 UNK = "<unk>"
@@ -44,11 +45,49 @@ def preprocess_data(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def transformer_preprocessor(tokenizer, data):
-    def preprocess(data):
-        return tokenizer(data["description"], padding="max_length")
+def transformer_preprocessor(
+    tokenizer,
+    data,
+    *,
+    text_column: str = "description",
+    label_column: str = "label",
+    max_length: int = 128,
+):
+    """Tokenize input data for Transformer models.
 
-    return data.map(preprocess) # batched=True
+    Accepts either a pandas DataFrame or a HuggingFace Dataset. Returns a HuggingFace
+    Dataset containing tokenized inputs and (when labels are present) a `labels`
+    column suitable for HuggingFace Trainer.
+    """
+
+    if isinstance(data, pd.DataFrame):
+        dataset = Dataset.from_pandas(data.reset_index(drop=True))
+    else:
+        dataset = data
+
+    def preprocess(batch):
+        encoded = tokenizer(
+            batch[text_column],
+            padding="max_length",
+            truncation=True,
+            max_length=max_length,
+        )
+
+        if label_column in batch:
+            raw_labels = batch[label_column]
+            if isinstance(raw_labels, list) and raw_labels:
+                min_label = min(raw_labels)
+                max_label = max(raw_labels)
+                if min_label == 1 and max_label == 4:
+                    encoded["labels"] = [int(x) - 1 for x in raw_labels]
+                else:
+                    encoded["labels"] = [int(x) for x in raw_labels]
+            else:
+                encoded["labels"] = raw_labels
+
+        return encoded
+
+    return dataset.map(preprocess, batched=True)
 
 
 def build_vocab(token_lists: list[list[str]], max_tokens: int = 20000) -> dict[str, int]:

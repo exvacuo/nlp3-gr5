@@ -11,6 +11,16 @@ import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
 
+try:
+    from transformers import PreTrainedModel
+except Exception:  # pragma: no cover
+    PreTrainedModel = nn.Module  # type: ignore
+
+try:
+    from datasets import Dataset
+except Exception:  # pragma: no cover
+    Dataset = None  # type: ignore
+
 # Adding type annotations to debug a pandas problem
 if TYPE_CHECKING:
     PandasSeriesAny: TypeAlias = pd.Series[Any]
@@ -19,7 +29,7 @@ else:
     
 def evaluate_model(
     model: LogisticRegression | LinearSVC | nn.Module,
-    X_test: np.ndarray,
+    X_test: Any,
     y_test: PandasSeriesAny | np.ndarray,
 ) -> Tuple[np.ndarray, dict[str, Any]]:
     """
@@ -30,11 +40,28 @@ def evaluate_model(
     :param y_test: The test data labels.
     :return: A dictionary containing the accuracy and macro F1 score of the model on the test dataset.
     """
-    # Check if it's a sklearn model (has predict method) or PyTorch model
-    if hasattr(model, 'predict'):
+    # sklearn models
+    if hasattr(model, "predict"):
         y_pred = model.predict(X_test)
+    # HuggingFace transformer models evaluated on tokenized Dataset
+    elif Dataset is not None and isinstance(X_test, Dataset):
+        model.eval()
+        device = next(model.parameters()).device
+        X_test = X_test.with_format("torch", columns=["input_ids", "attention_mask"], output_all_columns=False)
+
+        preds: list[int] = []
+        batch_size = 32
+        with torch.no_grad():
+            for start in range(0, len(X_test), batch_size):
+                batch = X_test[start : start + batch_size]
+                input_ids = batch["input_ids"].to(device)
+                attention_mask = batch["attention_mask"].to(device)
+                outputs = model(input_ids=input_ids, attention_mask=attention_mask)
+                logits = outputs.logits if hasattr(outputs, "logits") else outputs[0]
+                preds.extend(torch.argmax(logits, dim=1).cpu().tolist())
+        y_pred = np.asarray(preds)
     else:
-        # PyTorch model
+        # Generic PyTorch model on numpy arrays
         model.eval()
         device = next(model.parameters()).device
         with torch.no_grad():
@@ -117,7 +144,7 @@ def plot_learning_curves(histories: dict[str, dict], title: str = "Learning Curv
 
 def collect_misclassified_samples(
     model: LogisticRegression | LinearSVC | nn.Module,
-    X_test: np.ndarray,
+    X_test: Any,
     y_test: PandasSeriesAny | np.ndarray,
     *,
     test_df: pd.DataFrame | None = None,
@@ -143,10 +170,26 @@ def collect_misclassified_samples(
     label_map = {0: "World", 1: "Sports", 2: "Business", 3: "Sci/Tech"}
 
     # Predict labels for the test set
-    if hasattr(model, 'predict'):
+    if hasattr(model, "predict"):
         y_pred = model.predict(X_test)
+    elif Dataset is not None and isinstance(X_test, Dataset):
+        model.eval()
+        device = next(model.parameters()).device
+        X_test = X_test.with_format("torch", columns=["input_ids", "attention_mask"], output_all_columns=False)
+
+        preds: list[int] = []
+        batch_size = 32
+        with torch.no_grad():
+            for start in range(0, len(X_test), batch_size):
+                batch = X_test[start : start + batch_size]
+                input_ids = batch["input_ids"].to(device)
+                attention_mask = batch["attention_mask"].to(device)
+                outputs = model(input_ids=input_ids, attention_mask=attention_mask)
+                logits = outputs.logits if hasattr(outputs, "logits") else outputs[0]
+                preds.extend(torch.argmax(logits, dim=1).cpu().tolist())
+        y_pred = np.asarray(preds)
     else:
-        # PyTorch model
+        # Generic PyTorch model
         model.eval()
         device = next(model.parameters()).device
         with torch.no_grad():
@@ -216,10 +259,11 @@ def collect_misclassified_samples(
         # If we have a resolved test DataFrame, make sure it is aligned with X_test/y_test 
         # and contains the expected text column before including text in the result.
         if resolved_test_df is not None:
-            if len(resolved_test_df) != len(X_test):
+            x_len = len(X_test)
+            if len(resolved_test_df) != x_len:
                 raise ValueError(
                     "test_df must be aligned with X_test/y_test (same number of rows). "
-                    f"Got len(test_df)={len(resolved_test_df)} and len(X_test)={len(X_test)}"
+                    f"Got len(test_df)={len(resolved_test_df)} and len(X_test)={x_len}"
                 )
             if text_column not in resolved_test_df.columns:
                 raise ValueError(f"test_df does not contain column '{text_column}'")
