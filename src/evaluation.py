@@ -105,7 +105,7 @@ def plot_confusion_matrix(y_true: np.ndarray, y_pred: np.ndarray, title: str) ->
     plt.savefig(f"results/{title}.png")
     plt.close()
 
-def plot_learning_curves(histories: dict[str, dict], title: str = "Learning Curves", max_tokens:int=1000) -> None:
+def plot_learning_curves(histories: dict[str, dict], title: str = "Learning Curves", input_type: str = "Description Only", train_size: float = 1.0) -> None:
     """
     Plot and save learning curves showing train and validation loss for multiple models.
     
@@ -134,7 +134,7 @@ def plot_learning_curves(histories: dict[str, dict], title: str = "Learning Curv
         
         ax.set_xlabel('Epoch', fontsize=12)
         ax.set_ylabel('Loss', fontsize=12)
-        ax.set_title(f'{model_name} Learning Curve - Max length={max_tokens}', fontsize=14, fontweight='bold')
+        ax.set_title(f'{model_name} Learning Curve - {input_type}, Train Size={int(train_size*100)}%', fontsize=14, fontweight='bold')
         ax.legend(loc='best')
         ax.grid(True, alpha=0.3)
     
