@@ -38,7 +38,7 @@ def preprocess_data(df: pd.DataFrame) -> pd.DataFrame:
     Preprocess the input DataFrame by cleaning the text in the "description" column and tokenizing it into a new "tokens" column.
 
     :param df: A pandas DataFrame containing a "description" column with text data to be preprocessed
-    :return: A new DataFrame with the original "description" column cleaned and a new
+    :return: A new DataFrame with the original "description" column cleaned and a new "tokens" column
     """
 
 
@@ -58,13 +58,13 @@ def preprocess_data(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def transformer_preprocessor(
-    tokenizer,
-    data,
+    tokenizer: Any,
+    data: pd.DataFrame | Dataset,
     *,
     text_column: str = "description",
     label_column: str = "label",
     max_length: int = 128,
-):
+) -> Dataset:
     """Tokenize input data for Transformer models.
 
     Accepts either a pandas DataFrame or a HuggingFace Dataset. Returns a HuggingFace
@@ -151,8 +151,18 @@ def feature_engineering(
     *,
     max_tokens: int = 20000,
     output_sequence_length: int = 128,
-    vocab: dict | None = None,
-):
+    vocab: dict[str, int] | None = None,
+) -> tuple[np.ndarray, dict[str, int]]:
+    """
+    Apply feature engineering to encode tokens into integer sequences.
+
+    :param dataset: A DataFrame containing a 'tokens' column.
+    :param column_name: The column name to process.
+    :param max_tokens: Maximum vocabulary size to build if vocab is not provided.
+    :param output_sequence_length: The length to pad/truncate the sequences to.
+    :param vocab: Pre-built vocabulary.
+    :return: A tuple containing the padded array of token indices and the vocabulary.
+    """
     token_lists = dataset["tokens"].tolist()
 
     if vocab is None:

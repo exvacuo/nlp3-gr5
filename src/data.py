@@ -37,8 +37,9 @@ def split_dataset(train: pd.DataFrame, train_size: float = 1.0) -> Tuple[pd.Data
     """
     Split the original train set into a new train set and a dev set.
 
-    :param train: The original train DataFrame.
-    :return: A tuple containing the new train and dev DataFrames.
+    :param train: The train dataframe.
+    :param train_size: The fraction of the dataset to use as the new train set.
+    :return: A tuple containing the new train and dev dataframes.
     """
 
     train = train.groupby("label", group_keys=False).sample(frac=train_size, random_state=1337).reset_index(drop=True)
@@ -61,6 +62,13 @@ def split_dataset(train: pd.DataFrame, train_size: float = 1.0) -> Tuple[pd.Data
 
 
 def load_both(train: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    """
+    Split the training dataset into a new train set and a dev set,
+    combining 'description' and 'title' as the text feature.
+
+    :param train: The train dataframe.
+    :return: A tuple containing the new train and dev dataframes.
+    """
     # x_all = [train["description"].tolist(), train["title"].tolist()]
     x_all = (train["description"] + " " + train["title"].tolist())
     y_all = train["label"].tolist()
@@ -80,7 +88,14 @@ def load_both(train: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
     return new_train, dev
 
 
-def load_headline_only(train:pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
+def load_headline_only(train: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    """
+    Split the training dataset into a new train set and a dev set,
+    using only the 'title' column as the text feature.
+
+    :param train: The train dataframe.
+    :return: A tuple containing the new train and dev dataframes.
+    """
     x_all = train["title"].tolist()
     y_all = train["label"].tolist()
 

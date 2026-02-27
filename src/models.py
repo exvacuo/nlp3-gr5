@@ -53,7 +53,22 @@ def train_lstm(
     epochs: int = 2,
     batch_size: int = 128,
     patience: int = 3,
-):
+) -> tuple[TextLSTM, dict[str, Any]]:
+    """
+    Train a TextLSTM model using the input training data.
+
+    :param X_train: Training features as a NumPy array of token IDs.
+    :param y_train: Training labels.
+    :param X_val: Validation features (optional).
+    :param y_val: Validation labels (optional).
+    :param vocab_size: Size of the vocabulary.
+    :param embed_dim: Embedding dimension.
+    :param num_classes: Number of target classes.
+    :param epochs: Number of training epochs.
+    :param batch_size: Batch size.
+    :param patience: Early stopping patience.
+    :return: A tuple containing the trained TextLSTM model and its training history.
+    """
     # Determine the device to use for training (GPU if available, otherwise CPU)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -139,7 +154,19 @@ def train_lstm(
     return model, history
 
 
-def finetune_transformer(tokenized_train, tokenized_dev, tokenizer):
+def finetune_transformer(
+    tokenized_train: Any, 
+    tokenized_dev: Any, 
+    tokenizer: Any
+) -> tuple[DistilBertForSequenceClassification, dict[str, Any]]:
+    """
+    Fine-tune a pretrained DistilBERT model on the given dataset.
+
+    :param tokenized_train: Tokenized training dataset.
+    :param tokenized_dev: Tokenized validation dataset.
+    :param tokenizer: Tokenizer used to preprocess the data.
+    :return: A tuple with the trained DistilBert model and the history dictionary.
+    """
     model = DistilBertForSequenceClassification.from_pretrained(
         "distilbert-base-uncased",
         num_labels=4,
